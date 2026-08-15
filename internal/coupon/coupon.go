@@ -159,7 +159,18 @@ func Validate(o Order) error {
 
 // CheckExclusive 检查券集合是否违反互斥组约束：同一非空互斥组内不得多于一张。
 // 返回的错误对应 HTTP 400（仅对显式结算端点有意义；推荐端点自行枚举合法子集）。
+// 按传入顺序报告首个冲突，确定性输出；空组不参与互斥判定。
 func CheckExclusive(coupons []Coupon) error {
+	seen := make(map[string]string, len(coupons)) // 互斥组 -> 该组已见首张券 ID
+	for _, c := range coupons {
+		if c.ExclusiveGroup == "" {
+			continue
+		}
+		if first, ok := seen[c.ExclusiveGroup]; ok {
+			return fmt.Errorf("互斥组 %q 冲突：%q 与 %q 同组，同一互斥组最多一张", c.ExclusiveGroup, first, c.ID)
+		}
+		seen[c.ExclusiveGroup] = c.ID
+	}
 	return nil
 }
 
